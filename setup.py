@@ -3,16 +3,16 @@
 from setuptools import setup, find_packages
 
 setup(
-        name='gazeml',
-        version='0.1',
-        description='Data-driven gaze estimation using machine learning.',
+    name='gazeml',
+    version='0.1',
+    description='Data-driven gaze estimation using machine learning.',
 
-        author='Seonwook Park',
-        author_email='spark@inf.ethz.ch',
+    author='Seonwook Park',
+    author_email='spark@inf.ethz.ch',
 
-        packages=find_packages(exclude=[]),
-        python_requires='>=3.5',
-        install_requires=[
+    packages=find_packages(exclude=[]),
+    python_requires='>=3.5',
+    install_requires=[
             'coloredlogs',
             'h5py',
             'numpy',
@@ -21,9 +21,10 @@ setup(
             'ujson',
             'dlib',
             'tensorflow>=1,<2',
+            'scipy',
 
             # Install the most appropriate version of Tensorflow
             # Ref. https://www.tensorflow.org/install/
             # 'tensorflow',
-        ],
+    ],
 )
