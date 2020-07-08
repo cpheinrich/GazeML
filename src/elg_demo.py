@@ -12,6 +12,7 @@ import numpy as np
 import tensorflow as tf
 
 from datasources import Video, Webcam
+from util.weights import unzip_files
 from models import ELG
 import util.gaze
 
@@ -39,6 +40,9 @@ if __name__ == '__main__':
         fmt='%(asctime)s %(levelname)s %(message)s',
         level=args.v.upper(),
     )
+
+    # Unzip weight in ../outputs directory
+    unzip_files("../outputs")
 
     # Check if GPU is available
     from tensorflow.python.client import device_lib
