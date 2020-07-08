@@ -18,4 +18,6 @@ RUN apt-get update && apt-get install -y cmake libopenblas-dev liblapack-dev
 RUN mkdir build && mkdir dist
 RUN python setup.py install
 
-CMD [ "cd", "src", "&&", "python", "elg_demo.py", "--from_video", "../videos/obama_sample.mov", "--record_video", "../videos/obama_sample_output.mov", "--headless" ]
+WORKDIR /src
+
+CMD ["python", "elg_demo.py", "--from_video", "../videos/obama_sample.mov", "--record_video", "../videos/obama_sample_output.mov", "--headless" ]
