@@ -21,5 +21,10 @@ setup(
             'ujson',
             'dlib',
             'tensorflow>=1,<2',
+            'scipy',
+
+            # Install the most appropriate version of Tensorflow
+            # Ref. https://www.tensorflow.org/install/
+            # 'tensorflow',
     ],
 )
