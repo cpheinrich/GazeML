@@ -9,7 +9,9 @@ COPY setup.py /
 # Bundle app source
 COPY outputs /outputs
 
-COPY videos /videos
+COPY src/videos /src/videos
+
+VOLUME src/videos
 
 COPY src /src
 
@@ -20,4 +22,6 @@ RUN python setup.py install
 
 WORKDIR /src
 
-CMD ["python", "elg_demo.py", "--from_video", "../videos/obama_sample.mov", "--record_video", "../videos/obama_sample_output.mov", "--headless" ]
+ENTRYPOINT ["python", "elg_demo.py"]
+
+CMD ["--from_video", "../videos/obama_sample.mov", "--record_video", "../videos/obama_sample_output.mov"]

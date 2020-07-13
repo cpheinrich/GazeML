@@ -29,17 +29,20 @@ if __name__ == '__main__':
     parser.add_argument('--from_video', type=str, help='Use this video path instead of webcam')
     parser.add_argument('--record_video', type=str, help='Output path of video of demonstration.')
     parser.add_argument('--fullscreen', action='store_true')
-    parser.add_argument('--headless', action='store_true')
+    parser.add_argument('--show_video', action='store_true')
 
     parser.add_argument('--fps', type=int, default=60, help='Desired sampling rate of webcam')
     parser.add_argument('--camera_id', type=int, default=0, help='ID of webcam to use')
 
     args = parser.parse_args()
+
     coloredlogs.install(
         datefmt='%d/%m %H:%M',
         fmt='%(asctime)s %(levelname)s %(message)s',
         level=args.v.upper(),
     )
+
+    print("Running gaze inference with arguments {}".format(args))
 
     # Unzip weight in ../outputs directory
     unzip_files("../outputs")
@@ -163,7 +166,7 @@ if __name__ == '__main__':
                     if next_frame_index in data_source._frames:
                         next_frame = data_source._frames[next_frame_index]
                         if 'faces' in next_frame and len(next_frame['faces']) == 0:
-                            if not args.headless:
+                            if args.show_video:
                                 image = next_frame['bgr'].copy()
                                 is_shown = True
                             if args.record_video:
@@ -348,7 +351,7 @@ if __name__ == '__main__':
                         cv.putText(bgr, fps_str, org=(fw - 111, fh - 21),
                                    fontFace=cv.FONT_HERSHEY_DUPLEX, fontScale=0.79,
                                    color=(255, 255, 255), thickness=1, lineType=cv.LINE_AA)
-                        if not args.headless:
+                        if args.show_video:
                             image = bgr.copy()
                             is_shown = True
                         last_frame_index = frame_index
