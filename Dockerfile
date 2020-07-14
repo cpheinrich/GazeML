@@ -24,4 +24,4 @@ WORKDIR /src
 
 ENTRYPOINT ["python", "elg_demo.py"]
 
-CMD ["--from_video", "/src/videos/tracking_sample.mov", "--record_video", "/src/videos/tracking_sample_output.mp4"]
+CMD ["--from_video", "/src/videos/tracking_sample.mov"]
