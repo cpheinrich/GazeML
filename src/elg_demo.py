@@ -5,6 +5,7 @@ import os
 import queue
 import threading
 import time
+import pandas as pd
 
 import coloredlogs
 import cv2 as cv
@@ -15,6 +16,7 @@ from datasources import Video, Webcam
 from util.weights import unzip_files
 from models import ELG
 import util.gaze
+import shutil
 
 finish_thread = False
 is_shown = False
@@ -27,7 +29,7 @@ if __name__ == '__main__':
     parser.add_argument('-v', type=str, help='logging level', default='info',
                         choices=['debug', 'info', 'warning', 'error', 'critical'])
     parser.add_argument('--from_video', type=str, help='Use this video path instead of webcam')
-    parser.add_argument('--record_video', type=str, help='Output path of video of demonstration.')
+    #parser.add_argument('--record_video', type=str, help='Output path of video of demonstration.')
     parser.add_argument('--fullscreen', action='store_true')
     parser.add_argument('--show_video', action='store_true')
 
@@ -41,9 +43,14 @@ if __name__ == '__main__':
         fmt='%(asctime)s %(levelname)s %(message)s',
         level=args.v.upper(),
     )
+    # Set output video path
+    if args.from_video is not None:
+        base, ext = os.path.splitext(args.from_video)
+        record_video = args.from_video.replace(ext, '_output.mp4')
+        args.record_video = record_video
+        print("Set destination video path to ", record_video)
 
     print("Running gaze inference with arguments {}".format(args))
-
     # Unzip weight in ../outputs directory
     unzip_files("../outputs")
 
@@ -127,7 +134,7 @@ if __name__ == '__main__':
                     h, w, _ = frame.shape
                     if video_out is None:
                         video_out = cv.VideoWriter(
-                            args.record_video, cv.VideoWriter_fourcc(*'H264'),
+                            args.record_video, cv.VideoWriter_fourcc(*"mp4v"),
                             out_fps, (w, h),
                         )
                     now_time = time.time()
@@ -417,7 +424,9 @@ if __name__ == '__main__':
 
         # Close video recording
         if args.record_video and video_out is not None:
+            print("Closing video recording at {}".format(args.record_video))
             video_out_should_stop = True
             video_out_queue.put_nowait(None)
             with video_out_done:
                 video_out_done.wait()
+        print("Finished inference and video recording")

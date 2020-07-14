@@ -9,7 +9,7 @@ COPY setup.py /
 # Bundle app source
 COPY outputs /outputs
 
-COPY src/videos /src/videos
+COPY videos/tracking_sample.mov /src/videos/tracking_sample.mov
 
 VOLUME src/videos
 
@@ -24,4 +24,4 @@ WORKDIR /src
 
 ENTRYPOINT ["python", "elg_demo.py"]
 
-CMD ["--from_video", "../videos/obama_sample.mov", "--record_video", "../videos/obama_sample_output.mov"]
+CMD ["--from_video", "/src/videos/tracking_sample.mov", "--record_video", "/src/videos/tracking_sample_output.mp4"]
