@@ -5,6 +5,7 @@ import os
 import queue
 import threading
 import time
+import pandas as pd
 
 import coloredlogs
 import cv2 as cv
@@ -15,6 +16,7 @@ from datasources import Video, Webcam
 from util.weights import unzip_files
 from models import ELG
 import util.gaze
+import shutil
 
 finish_thread = False
 is_shown = False
@@ -27,20 +29,28 @@ if __name__ == '__main__':
     parser.add_argument('-v', type=str, help='logging level', default='info',
                         choices=['debug', 'info', 'warning', 'error', 'critical'])
     parser.add_argument('--from_video', type=str, help='Use this video path instead of webcam')
-    parser.add_argument('--record_video', type=str, help='Output path of video of demonstration.')
     parser.add_argument('--fullscreen', action='store_true')
-    parser.add_argument('--headless', action='store_true')
+    parser.add_argument('--show_video', action='store_true')
 
     parser.add_argument('--fps', type=int, default=60, help='Desired sampling rate of webcam')
     parser.add_argument('--camera_id', type=int, default=0, help='ID of webcam to use')
 
     args = parser.parse_args()
+
     coloredlogs.install(
         datefmt='%d/%m %H:%M',
         fmt='%(asctime)s %(levelname)s %(message)s',
         level=args.v.upper(),
     )
+    # Set output video path
+    record_video = None
+    if args.from_video is not None:
+        base, ext = os.path.splitext(args.from_video)
+        record_video = args.from_video.replace(ext, '_output.mp4')
+        record_video = record_video
+    print("Set destination video path to ", record_video)
 
+    print("Running gaze inference with arguments {}".format(args))
     # Unzip weight in ../outputs directory
     unzip_files("../outputs")
 
@@ -104,7 +114,7 @@ if __name__ == '__main__':
             )
 
         # Record output frames to file if requested
-        if args.record_video:
+        if record_video:
             video_out = None
             video_out_queue = queue.Queue()
             video_out_should_stop = False
@@ -124,7 +134,7 @@ if __name__ == '__main__':
                     h, w, _ = frame.shape
                     if video_out is None:
                         video_out = cv.VideoWriter(
-                            args.record_video, cv.VideoWriter_fourcc(*'H264'),
+                            record_video, cv.VideoWriter_fourcc(*"mp4v"),
                             out_fps, (w, h),
                         )
                     now_time = time.time()
@@ -163,10 +173,10 @@ if __name__ == '__main__':
                     if next_frame_index in data_source._frames:
                         next_frame = data_source._frames[next_frame_index]
                         if 'faces' in next_frame and len(next_frame['faces']) == 0:
-                            if not args.headless:
+                            if args.show_video:
                                 image = next_frame['bgr'].copy()
                                 is_shown = True
-                            if args.record_video:
+                            if record_video:
                                 video_out_queue.put_nowait(next_frame_index)
                             last_frame_index = next_frame_index
 
@@ -348,13 +358,13 @@ if __name__ == '__main__':
                         cv.putText(bgr, fps_str, org=(fw - 111, fh - 21),
                                    fontFace=cv.FONT_HERSHEY_DUPLEX, fontScale=0.79,
                                    color=(255, 255, 255), thickness=1, lineType=cv.LINE_AA)
-                        if not args.headless:
+                        if args.show_video:
                             image = bgr.copy()
                             is_shown = True
                         last_frame_index = frame_index
 
                         # Record frame?
-                        if args.record_video:
+                        if record_video:
                             video_out_queue.put_nowait(frame_index)
 
                         if finish_thread:
@@ -413,8 +423,10 @@ if __name__ == '__main__':
                 break
 
         # Close video recording
-        if args.record_video and video_out is not None:
+        if record_video and video_out is not None:
+            print("Closing video recording at {}".format(record_video))
             video_out_should_stop = True
             video_out_queue.put_nowait(None)
             with video_out_done:
                 video_out_done.wait()
+        print("Finished inference and video recording")

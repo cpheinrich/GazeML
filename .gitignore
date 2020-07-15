@@ -18,7 +18,10 @@ dist/
 *.egg-info/
 
 src/commands.md
+commands.md
 
 .vscode/
+
+videos/
 
 
