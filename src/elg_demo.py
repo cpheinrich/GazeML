@@ -22,6 +22,22 @@ finish_thread = False
 is_shown = False
 image = None
 
+
+def write_output_csv(output_csv_path, output_cache):
+    df = pd.DataFrame()
+    frame_indices = sorted(list(output_cache.keys()))
+    df['frame_index'] = 0
+    df['gaze_theta'] = 0.0
+    df['gaze_phi'] = 0.0
+
+    for index, frame_index in enumerate(frame_indices):
+        if 'gaze_theta' and 'gaze_phi' in output_cache[frame_index].keys():
+            df.at[index, 'frame_index'] = int(frame_index)
+            df.at[index, 'gaze_theta'] = output_cache[frame_index]['gaze_theta']
+            df.at[index, 'gaze_phi'] = output_cache[frame_index]['gaze_phi']
+    df.to_csv(output_csv_path, index=False)
+
+
 if __name__ == '__main__':
 
     # Set global log level
@@ -37,18 +53,23 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    # A dictionary of low dimensional output data to cache so we can write it to
+    # a csv file at the end of inference
+    output_cache = {}
+
     coloredlogs.install(
         datefmt='%d/%m %H:%M',
         fmt='%(asctime)s %(levelname)s %(message)s',
         level=args.v.upper(),
     )
     # Set output video path
-    record_video = None
+    output_video = None
+    output_csv = None
     if args.from_video is not None:
         base, ext = os.path.splitext(args.from_video)
-        record_video = args.from_video.replace(ext, '_output.mp4')
-        record_video = record_video
-    print("Set destination video path to ", record_video)
+        output_video = args.from_video.replace(ext, '_output.mp4')
+        output_csv = args.from_video.replace(ext, '_output.csv')
+    print("Set destination video path to ", output_video)
 
     print("Running gaze inference with arguments {}".format(args))
     # Unzip weight in ../outputs directory
@@ -114,7 +135,7 @@ if __name__ == '__main__':
             )
 
         # Record output frames to file if requested
-        if record_video:
+        if output_video:
             video_out = None
             video_out_queue = queue.Queue()
             video_out_should_stop = False
@@ -134,7 +155,7 @@ if __name__ == '__main__':
                     h, w, _ = frame.shape
                     if video_out is None:
                         video_out = cv.VideoWriter(
-                            record_video, cv.VideoWriter_fourcc(*"mp4v"),
+                            output_video, cv.VideoWriter_fourcc(*"mp4v"),
                             out_fps, (w, h),
                         )
                     now_time = time.time()
@@ -176,7 +197,7 @@ if __name__ == '__main__':
                             if args.show_video:
                                 image = next_frame['bgr'].copy()
                                 is_shown = True
-                            if record_video:
+                            if output_video:
                                 video_out_queue.put_nowait(next_frame_index)
                             last_frame_index = next_frame_index
 
@@ -186,6 +207,7 @@ if __name__ == '__main__':
                 output = inferred_stuff_queue.get()
                 bgr = None
                 for j in range(batch_size):
+                    output_dict = {}  # dict of low dimensional outputs to cache for this frame
                     frame_index = output['frame_index'][j]
                     if frame_index not in data_source._frames:
                         continue
@@ -211,7 +233,8 @@ if __name__ == '__main__':
                         eye_image = np.fliplr(eye_image)
 
                     # Embed eye image and annotate for picture-in-picture
-                    eye_upscale = 2
+                    """"""
+                    eye_upscale = 0.75
                     eye_image_raw = cv.cvtColor(cv.equalizeHist(eye_image), cv.COLOR_GRAY2BGR)
                     eye_image_raw = cv.resize(eye_image_raw, (0, 0), fx=eye_upscale, fy=eye_upscale)
                     eye_image_annotated = np.copy(eye_image_raw)
@@ -303,7 +326,11 @@ if __name__ == '__main__':
                         theta = -np.arcsin(np.clip((i_y0 - e_y0) / eyeball_radius, -1.0, 1.0))
                         phi = np.arcsin(np.clip((i_x0 - e_x0) / (eyeball_radius * -np.cos(theta)),
                                                 -1.0, 1.0))
-                        current_gaze = np.array([theta, phi])
+                        current_gaze = np.asarray([theta, phi])
+                        output_dict['gaze_theta'] = round(theta, 5)
+                        output_dict['gaze_phi'] = round(phi, 5)
+                        print("Current gaze:", output_dict)
+
                         gaze_history.append(current_gaze)
                         gaze_history_max_len = 10
                         if len(gaze_history) > gaze_history_max_len:
@@ -311,6 +338,9 @@ if __name__ == '__main__':
                         util.gaze.draw_gaze(bgr, iris_centre, np.mean(gaze_history, axis=0),
                                             length=120.0, thickness=1)
                     else:
+                        print("gaze not available for frame", frame_index)
+                        output_dict['gaze_theta'] = float("nan")
+                        output_dict['gaze_phi'] = float("nan")
                         gaze_history.clear()
 
                     if can_use_eyelid:
@@ -364,7 +394,7 @@ if __name__ == '__main__':
                         last_frame_index = frame_index
 
                         # Record frame?
-                        if record_video:
+                        if output_video:
                             video_out_queue.put_nowait(frame_index)
 
                         if finish_thread:
@@ -383,6 +413,8 @@ if __name__ == '__main__':
                                 'latency: %dms' % latency,
                             ])
                             print('%08d [%s] %s' % (frame_index, fps_str, timing_string))
+                    # Write output_dict to the global output_cache for this frame
+                    output_cache[frame_index] = output_dict
 
         visualize_thread = threading.Thread(target=_visualize_output, name='visualization')
         visualize_thread.daemon = True
@@ -407,6 +439,8 @@ if __name__ == '__main__':
                     frame['time']['inference'] = output['inference_time']
 
             print('Output keys\n', output.keys())
+            #print('Eye index', output['eye_index'])
+            #print('Eye ', output['eye'])
 
             inferred_stuff_queue.put_nowait(output)
 
@@ -423,10 +457,12 @@ if __name__ == '__main__':
                 break
 
         # Close video recording
-        if record_video and video_out is not None:
-            print("Closing video recording at {}".format(record_video))
+        if output_video and video_out is not None:
+            print("Closing video recording at {}".format(output_video))
             video_out_should_stop = True
             video_out_queue.put_nowait(None)
             with video_out_done:
                 video_out_done.wait()
         print("Finished inference and video recording")
+
+        write_output_csv(output_csv, output_cache)
