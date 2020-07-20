@@ -32,7 +32,7 @@ def write_output_csv(output_csv_path, output_cache):
 
     for index, frame_index in enumerate(frame_indices):
         if 'gaze_theta' and 'gaze_phi' in output_cache[frame_index].keys():
-            df.at[index, 'frame_index'] = frame_index
+            df.at[index, 'frame_index'] = int(frame_index)
             df.at[index, 'gaze_theta'] = output_cache[frame_index]['gaze_theta']
             df.at[index, 'gaze_phi'] = output_cache[frame_index]['gaze_phi']
     df.to_csv(output_csv_path, index=False)
