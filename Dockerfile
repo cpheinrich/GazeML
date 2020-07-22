@@ -22,6 +22,6 @@ RUN python setup.py install
 
 WORKDIR /src
 
-ENTRYPOINT ["python", "elg_demo.py"]
+ENTRYPOINT ["python", "inference.py"]
 
 CMD ["--from_video", "/src/videos/tracking_sample.mov"]
