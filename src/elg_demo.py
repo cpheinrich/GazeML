@@ -27,14 +27,19 @@ def write_output_csv(output_csv_path, output_cache):
     df = pd.DataFrame()
     frame_indices = sorted(list(output_cache.keys()))
     df['frame_index'] = 0
-    df['gaze_theta'] = 0.0
-    df['gaze_phi'] = 0.0
+    df['left_theta'] = 0.0
+    df['left_phi'] = 0.0
+    df['right_theta'] = 0.0
+    df['right_phi'] = 0.0
 
     for index, frame_index in enumerate(frame_indices):
-        if 'gaze_theta' and 'gaze_phi' in output_cache[frame_index].keys():
-            df.at[index, 'frame_index'] = int(frame_index)
-            df.at[index, 'gaze_theta'] = output_cache[frame_index]['gaze_theta']
-            df.at[index, 'gaze_phi'] = output_cache[frame_index]['gaze_phi']
+        df.at[index, 'frame_index'] = int(frame_index)
+        if 'left_theta' and 'left_phi' in output_cache[frame_index].keys():
+            df.at[index, 'left_theta'] = output_cache[frame_index]['left_theta']
+            df.at[index, 'left_phi'] = output_cache[frame_index]['left_phi']
+        if 'right_theta' and 'right_phi' in output_cache[frame_index].keys():
+            df.at[index, 'right_theta'] = output_cache[frame_index]['right_theta']
+            df.at[index, 'right_phi'] = output_cache[frame_index]['right_phi']
     df.to_csv(output_csv_path, index=False)
 
 
@@ -206,8 +211,8 @@ if __name__ == '__main__':
                 # Get output from neural network and visualize
                 output = inferred_stuff_queue.get()
                 bgr = None
+                output_dict = {}  # dict of low dimensional outputs to cache for this frame
                 for j in range(batch_size):
-                    output_dict = {}  # dict of low dimensional outputs to cache for this frame
                     frame_index = output['frame_index'][j]
                     if frame_index not in data_source._frames:
                         continue
@@ -215,8 +220,10 @@ if __name__ == '__main__':
 
                     # Decide which landmarks are usable
                     heatmaps_amax = np.amax(output['heatmaps'][j, :].reshape(-1, 18), axis=0)
-                    print(heatmaps_amax)
-                    can_use_eye = np.all(heatmaps_amax > 0.7)
+                    print("heatmaps_amax {}".format(heatmaps_amax))
+                    # Larger values for the threshold are more stringent
+                    heatmap_threshold = 0.75
+                    can_use_eye = np.all(heatmaps_amax > heatmap_threshold)
                     can_use_eyelid = np.all(heatmaps_amax[0:8] > 0.75)
                     can_use_iris = np.all(heatmaps_amax[8:16] > 0.8)
 
@@ -226,6 +233,7 @@ if __name__ == '__main__':
                     eye = frame['eyes'][eye_index]
                     eye_image = eye['image']
                     eye_side = eye['side']
+                    print("Eye side: {}".format(eye_side))
                     eye_landmarks = output['landmarks'][j, :]
                     eye_radius = output['radius'][j][0]
                     if eye_side == 'left':
@@ -327,8 +335,9 @@ if __name__ == '__main__':
                         phi = np.arcsin(np.clip((i_x0 - e_x0) / (eyeball_radius * -np.cos(theta)),
                                                 -1.0, 1.0))
                         current_gaze = np.asarray([theta, phi])
-                        output_dict['gaze_theta'] = round(theta, 5)
-                        output_dict['gaze_phi'] = round(phi, 5)
+
+                        output_dict['{}_theta'.format(eye_side)] = round(theta, 5)
+                        output_dict['{}_phi'.format(eye_side)] = round(phi, 5)
                         print("Current gaze:", output_dict)
 
                         gaze_history.append(current_gaze)
@@ -339,8 +348,8 @@ if __name__ == '__main__':
                                             length=120.0, thickness=1)
                     else:
                         print("gaze not available for frame", frame_index)
-                        output_dict['gaze_theta'] = float("nan")
-                        output_dict['gaze_phi'] = float("nan")
+                        output_dict['{}_theta'.format(eye_side)] = float("nan")
+                        output_dict['{}_phi'.format(eye_side)] = float("nan")
                         gaze_history.clear()
 
                     if can_use_eyelid:
@@ -414,7 +423,7 @@ if __name__ == '__main__':
                             ])
                             print('%08d [%s] %s' % (frame_index, fps_str, timing_string))
                     # Write output_dict to the global output_cache for this frame
-                    output_cache[frame_index] = output_dict
+                output_cache[frame_index] = output_dict
 
         visualize_thread = threading.Thread(target=_visualize_output, name='visualization')
         visualize_thread.daemon = True
